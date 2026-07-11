@@ -23,4 +23,4 @@ class CameraPage(QWidget):
         layout.addWidget(label)
         layout.addWidget(back)
 
-        self.setLayout(layout) 
+        self.setLayout(layout)

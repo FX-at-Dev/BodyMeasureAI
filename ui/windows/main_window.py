@@ -3,8 +3,8 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from ui.home_page import HomePage
-from ui.camera_page import CameraPage
+from ui.pages.home import HomePage
+from ui.pages.camera import CameraPage
 
 
 class MainWindow(QMainWindow):
