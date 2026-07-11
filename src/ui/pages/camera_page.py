@@ -1,9 +1,12 @@
 from PySide6.QtWidgets import (
     QWidget,
-    QLabel,
     QPushButton,
+    QLabel,
+    QHBoxLayout,
     QVBoxLayout,
 )
+
+from src.ui.widgets.camera_widget import CameraWidget
 
 
 class CameraPage(QWidget):
@@ -13,14 +16,41 @@ class CameraPage(QWidget):
 
         self.window = window
 
-        label = QLabel("Camera Coming Soon")
+        self.camera = CameraWidget()
 
-        back = QPushButton("Back")
-        back.clicked.connect(window.go_home)
+        self.status = QLabel("🟢 Camera Ready")
+
+        self.capture_button = QPushButton("📸 Capture")
+
+        self.import_button = QPushButton("📂 Import")
+
+        self.back_button = QPushButton("⬅ Back")
+
+        self.back_button.clicked.connect(window.go_home)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.import_button)
+        buttons.addWidget(self.capture_button)
+        buttons.addStretch()
+        buttons.addWidget(self.back_button)
 
         layout = QVBoxLayout()
 
-        layout.addWidget(label)
-        layout.addWidget(back)
+        layout.addWidget(self.status)
+        self.camera.setMinimumSize(800, 600)
+        layout.addWidget(self.camera)
+        layout.addLayout(buttons)
 
         self.setLayout(layout)
+
+    def showEvent(self, event):
+
+        self.camera.start()
+
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+
+        self.camera.stop()
+
+        super().hideEvent(event)

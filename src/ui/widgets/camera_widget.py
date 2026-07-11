@@ -3,39 +3,35 @@ from __future__ import annotations
 import cv2
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtWidgets import QWidget
 
 from src.services.camera_service import CameraService
 
 
-class CameraWidget(QLabel):
-    """Displays a live webcam feed."""
+class CameraWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setAlignment(Qt.AlignCenter)
-        self.setText("Starting camera...")
-
         self.camera = CameraService()
 
+        self.frame = None
+
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_frame)
+        self.timer.timeout.connect(self.next_frame)
 
     def start(self):
 
         if self.camera.start():
             self.timer.start(33)
-        else:
-            self.setText("Unable to open camera")
 
     def stop(self):
 
         self.timer.stop()
         self.camera.stop()
 
-    def update_frame(self):
+    def next_frame(self):
 
         frame = self.camera.get_frame()
 
@@ -44,41 +40,40 @@ class CameraWidget(QLabel):
 
         frame = cv2.cvtColor(
             frame,
-            cv2.COLOR_BGR2RGB
+            cv2.COLOR_BGR2RGB,
         )
 
-        h, w, ch = frame.shape
+        h, w, c = frame.shape
 
-        image = QImage(
+        self.frame = QImage(
             frame.data,
             w,
             h,
-            ch * w,
-            QImage.Format_RGB888,
+            c * w,
+            QImage.Format.Format_RGB888,
+        ).copy()
+
+        self.update()
+
+    def paintEvent(self, event):
+
+        painter = QPainter(self)
+
+        painter.fillRect(self.rect(), Qt.black)
+
+        if self.frame is None:
+            return
+
+        image = self.frame.scaled(
+            self.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
         )
 
-        pixmap = QPixmap.fromImage(image)
+        x = (self.width() - image.width()) // 2
+        y = (self.height() - image.height()) // 2
 
-        self.setPixmap(
-            pixmap.scaled(
-                self.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
-            )
-        )
-
-    def resizeEvent(self, event):
-
-        if self.pixmap():
-            self.setPixmap(
-                self.pixmap().scaled(
-                    self.size(),
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation,
-                )
-            )
-
-        super().resizeEvent(event)
+        painter.drawImage(x, y, image)
 
     def closeEvent(self, event):
 

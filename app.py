@@ -1,13 +1,20 @@
 import sys
 
+import qdarktheme
+
 from PySide6.QtWidgets import QApplication
+
 from src.ui.windows.main_window import MainWindow
 
 
 def main():
+
     app = QApplication(sys.argv)
 
+    qdarktheme.setup_theme()
+
     window = MainWindow()
+
     window.show()
 
     sys.exit(app.exec())
