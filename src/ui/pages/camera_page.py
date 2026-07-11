@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QLabel,
     QHBoxLayout,
+    QLabel,
+    QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.ui.widgets.camera_widget import CameraWidget

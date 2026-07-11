@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import cv2
+import time
 
+import cv2
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QWidget
 
+from src.ai.pose_detector import PoseDetector
+from src.renderers.pose_renderer import PoseRenderer
 from src.services.camera_service import CameraService
 
 
@@ -21,6 +24,16 @@ class CameraWidget(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.next_frame)
 
+        self.pose_detector = PoseDetector()
+        
+        self.pose_renderer = PoseRenderer()
+        
+        self.landmarks = None
+        
+        self.last_time = time.time()
+        
+        self.fps = 0
+
     def start(self):
 
         if self.camera.start():
@@ -34,6 +47,14 @@ class CameraWidget(QWidget):
     def next_frame(self):
 
         frame = self.camera.get_frame()
+
+        self.landmarks = self.pose_detector.detect(frame)
+        
+        current = time.time()
+        
+        self.fps = 1/(current-self.last_time)
+        
+        self.last_time = current
 
         if frame is None:
             return
@@ -74,6 +95,21 @@ class CameraWidget(QWidget):
         y = (self.height() - image.height()) // 2
 
         painter.drawImage(x, y, image)
+
+        if self.landmarks:
+            self.pose_renderer.draw(
+                        painter,
+                        self.landmarks,
+                        image.width(),
+                        image.height(),
+                        )
+        painter.setPen(QColor("yellow"))
+        
+        painter.drawText(
+            10,
+            30,
+            f"FPS : {self.fps:.1f}"
+        )
 
     def closeEvent(self, event):
 

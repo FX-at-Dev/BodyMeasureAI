@@ -1,7 +1,6 @@
 import sys
 
 import qdarktheme
-
 from PySide6.QtWidgets import QApplication
 
 from src.ui.windows.main_window import MainWindow

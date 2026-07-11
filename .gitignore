@@ -1,12 +1,11 @@
-# Virtual Environment
-.venv/
-venv/
-
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
 
 # IDE
 .vscode/
@@ -19,10 +18,12 @@ Thumbs.db
 # Build
 build/
 dist/
+*.egg-info/
 
-# Exports
+# Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Application data
 exports/
-
-# Images (optional)
-images/*.jpg
-images/*.png

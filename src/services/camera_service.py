@@ -1,5 +1,5 @@
+
 import cv2
-from typing import Optional
 
 
 class CameraService:
@@ -7,7 +7,7 @@ class CameraService:
 
     def __init__(self, camera_index: int = 0):
         self.camera_index = camera_index
-        self.cap: Optional[cv2.VideoCapture] = None
+        self.cap: cv2.VideoCapture | None = None
 
     def start(self) -> bool:
         """Open the camera."""

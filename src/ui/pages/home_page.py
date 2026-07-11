@@ -1,11 +1,10 @@
-from PySide6.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QLabel,
-    QVBoxLayout,
-)
-
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class HomePage(QWidget):
