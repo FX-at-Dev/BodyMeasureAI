@@ -1,4 +1,3 @@
-
 import cv2
 
 
@@ -48,10 +47,7 @@ class CameraService:
         return True
 
     def is_running(self) -> bool:
-        return (
-            self.cap is not None
-            and self.cap.isOpened()
-        )
+        return self.cap is not None and self.cap.isOpened()
 
     def __del__(self):
         self.stop()

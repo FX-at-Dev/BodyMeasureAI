@@ -12,13 +12,13 @@ class HomePage(QWidget):
     def __init__(self, window):
         super().__init__()
 
-        self.window = window
+        self.main_window = window
 
         title = QLabel("BodyMeasureAI")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         button = QPushButton("Open Camera")
-        button.clicked.connect(window.open_camera)
+        button.clicked.connect(self.main_window.open_camera)
 
         layout = QVBoxLayout()
 

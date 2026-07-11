@@ -14,7 +14,7 @@ class CameraPage(QWidget):
     def __init__(self, window):
         super().__init__()
 
-        self.window = window
+        self.main_window = window
 
         self.camera = CameraWidget()
 
@@ -26,7 +26,7 @@ class CameraPage(QWidget):
 
         self.back_button = QPushButton("⬅ Back")
 
-        self.back_button.clicked.connect(window.go_home)
+        self.back_button.clicked.connect(self.main_window.go_home)
 
         buttons = QHBoxLayout()
         buttons.addWidget(self.import_button)

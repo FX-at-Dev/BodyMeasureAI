@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import cv2
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPainter
+from PySide6.QtGui import QCloseEvent, QColor, QImage, QPainter, QPaintEvent
 from PySide6.QtWidgets import QWidget
 
 from src.ai.pose_detector import PoseDetector
@@ -19,50 +20,54 @@ class CameraWidget(QWidget):
 
         self.camera = CameraService()
 
-        self.frame = None
+        self.frame: QImage | None = None
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.next_frame)
 
         self.pose_detector = PoseDetector()
-        
+
         self.pose_renderer = PoseRenderer()
-        
-        self.landmarks = None
-        
+
+        self.landmarks: list[Any] | None = None
+
         self.last_time = time.time()
-        
-        self.fps = 0
+
+        self.fps: float = 0.0
 
     def start(self):
 
         if self.camera.start():
             self.timer.start(33)
 
-    def stop(self):
-
+    def stop(self) -> None:
         self.timer.stop()
+
         self.camera.stop()
 
-    def next_frame(self):
+        self.pose_detector.close()
 
+    def next_frame(self) -> None:
         frame = self.camera.get_frame()
 
-        self.landmarks = self.pose_detector.detect(frame)
-        
+        if frame is None:
+            print("NO FRAME")
+            return
+        print(frame.shape)
+
+        # self.landmarks = self.pose_detector.detect(frame)
+        # TEMPORARILY DISABLE AI
+        self.landmarks = None
+
         current = time.time()
-        
-        self.fps = 1/(current-self.last_time)
-        
+        delta = current - self.last_time
+
+        if delta > 0:
+            self.fps = 1.0 / delta
+
         self.last_time = current
 
-        if frame is None:
-            return
-
-        frame = cv2.cvtColor(
-            frame,
-            cv2.COLOR_BGR2RGB,
-        )
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         h, w, c = frame.shape
 
@@ -76,11 +81,18 @@ class CameraWidget(QWidget):
 
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
+        _ = event
 
         painter = QPainter(self)
 
-        painter.fillRect(self.rect(), Qt.black)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+        painter.fillRect(
+            self.rect(),
+            QColor("black"),
+        )
 
         if self.frame is None:
             return
@@ -96,22 +108,27 @@ class CameraWidget(QWidget):
 
         painter.drawImage(x, y, image)
 
-        if self.landmarks:
-            self.pose_renderer.draw(
-                        painter,
-                        self.landmarks,
-                        image.width(),
-                        image.height(),
-                        )
-        painter.setPen(QColor("yellow"))
-        
-        painter.drawText(
-            10,
-            30,
-            f"FPS : {self.fps:.1f}"
-        )
+        image_width = image.width()
+        image_height = image.height()
 
-    def closeEvent(self, event):
+        image_x = (self.width() - image_width) // 2
+        image_y = (self.height() - image_height) // 2
+
+        if self.landmarks is not None:
+            self.pose_renderer.draw(
+                painter,
+                self.landmarks,
+                image_x,
+                image_y,
+                image_width,
+                image_height,
+            )
+
+        painter.setPen(QColor("yellow"))
+
+        painter.drawText(10, 30, f"FPS : {self.fps:.1f}")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
 
         self.stop()
 

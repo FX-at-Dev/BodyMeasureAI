@@ -1,71 +1,75 @@
+from __future__ import annotations
+
+from typing import Any
+
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QPainter, QPen
 
 
 class PoseRenderer:
+    """Draws MediaPipe pose landmarks."""
 
     CONNECTIONS = [
-
-        (11,13),(13,15),
-        (12,14),(14,16),
-
-        (11,12),
-
-        (11,23),
-        (12,24),
-
-        (23,24),
-
-        (23,25),
-        (25,27),
-
-        (24,26),
-        (26,28),
-
-        (27,31),
-        (28,32)
-
+        (11, 13),
+        (13, 15),
+        (12, 14),
+        (14, 16),
+        (11, 12),
+        (11, 23),
+        (12, 24),
+        (23, 24),
+        (23, 25),
+        (25, 27),
+        (24, 26),
+        (26, 28),
+        (27, 31),
+        (28, 32),
     ]
 
     def draw(
         self,
         painter: QPainter,
-        landmarks,
-        width,
-        height,
-    ):
+        landmarks: list[Any] | None,
+        image_x: int,
+        image_y: int,
+        image_width: int,
+        image_height: int,
+    ) -> None:
 
         if landmarks is None:
             return
 
-        pen = QPen(
-            QColor(0,255,0),
-            3,
-        )
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        pen = QPen(QColor("#00FF88"))
+        pen.setWidth(3)
 
         painter.setPen(pen)
+        painter.setBrush(QColor("#FF5555"))
 
-        painter.setBrush(
-            QColor(255,60,60)
-        )
-
-        for start,end in self.CONNECTIONS:
-
+        # Draw bones
+        for start, end in self.CONNECTIONS:
             a = landmarks[start]
             b = landmarks[end]
 
             painter.drawLine(
-                QPointF(a.x*width,a.y*height),
-                QPointF(b.x*width,b.y*height)
+                QPointF(
+                    image_x + a.x * image_width,
+                    image_y + a.y * image_height,
+                ),
+                QPointF(
+                    image_x + b.x * image_width,
+                    image_y + b.y * image_height,
+                ),
             )
 
+        # Draw joints
         for lm in landmarks:
-
             painter.drawEllipse(
                 QPointF(
-                    lm.x*width,
-                    lm.y*height
+                    image_x + lm.x * image_width,
+                    image_y + lm.y * image_height,
                 ),
                 4,
-                4
+                4,
             )

@@ -20,6 +20,8 @@ class OverlayRenderer:
         self.pose.draw(
             painter,
             pose_landmarks,
-            width,
-            height,
+            0,  # image_x
+            0,  # image_y
+            width,  # image_width
+            height,  # image_height
         )
