@@ -2,4 +2,4 @@ from __future__ import annotations
 
 
 class ExportService:
-    pass
+    """Placeholder for local JSON and CSV measurement exports."""

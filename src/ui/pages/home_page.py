@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QLabel,
@@ -6,10 +10,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+if TYPE_CHECKING:
+    from src.ui.windows.main_window import MainWindow
+
 
 class HomePage(QWidget):
+    """Provide the entry point to the live-camera workflow."""
 
-    def __init__(self, window):
+    def __init__(self, window: MainWindow) -> None:
         super().__init__()
 
         self.main_window = window

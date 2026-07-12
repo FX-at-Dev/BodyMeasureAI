@@ -1,135 +1,94 @@
+"""Camera-preview widget with optional pose overlay rendering."""
+
 from __future__ import annotations
 
-import time
 from typing import Any
 
-import cv2
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QColor, QImage, QPainter, QPaintEvent
+from PySide6.QtCore import QElapsedTimer, QRect, Qt, Slot
+from PySide6.QtGui import QColor, QImage, QPainter, QPaintEvent
 from PySide6.QtWidgets import QWidget
 
-from src.ai.pose_detector import PoseDetector
 from src.renderers.pose_renderer import PoseRenderer
-from src.services.camera_service import CameraService
 
 
 class CameraWidget(QWidget):
+    """Display supplied camera frames and pose landmarks without inference."""
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        show_landmark_ids: bool = False,
+    ) -> None:
         super().__init__(parent)
+        self._frame: QImage | None = None
+        self._landmarks: list[Any] | None = None
+        self._pose_renderer = PoseRenderer(show_landmark_ids=show_landmark_ids)
+        self._frame_timer = QElapsedTimer()
+        self._frame_timer.start()
+        self._last_frame_time_ms: int | None = None
+        self._fps = 0.0
 
-        self.camera = CameraService()
-
-        self.frame: QImage | None = None
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.next_frame)
-
-        self.pose_detector = PoseDetector()
-
-        self.pose_renderer = PoseRenderer()
-
-        self.landmarks: list[Any] | None = None
-
-        self.last_time = time.time()
-
-        self.fps: float = 0.0
-
-    def start(self):
-
-        if self.camera.start():
-            self.timer.start(33)
-
-    def stop(self) -> None:
-        self.timer.stop()
-
-        self.camera.stop()
-
-        self.pose_detector.close()
-
-    def next_frame(self) -> None:
-        frame = self.camera.get_frame()
-
-        if frame is None:
-            print("NO FRAME")
-            return
-        print(frame.shape)
-
-        # self.landmarks = self.pose_detector.detect(frame)
-        # TEMPORARILY DISABLE AI
-        self.landmarks = None
-
-        current = time.time()
-        delta = current - self.last_time
-
-        if delta > 0:
-            self.fps = 1.0 / delta
-
-        self.last_time = current
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        h, w, c = frame.shape
-
-        self.frame = QImage(
-            frame.data,
-            w,
-            h,
-            c * w,
-            QImage.Format.Format_RGB888,
-        ).copy()
-
+    @Slot(QImage)
+    def display_frame(self, frame: QImage) -> None:
+        """Display an already converted frame and update preview FPS."""
+        self._frame = frame
+        self._update_fps()
         self.update()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
-        _ = event
+    @Slot(object)
+    def set_landmarks(self, landmarks: list[Any] | None) -> None:
+        """Display pose landmarks received from the pose worker."""
+        self._landmarks = landmarks
+        self.update()
 
+    def clear_landmarks(self) -> None:
+        """Remove the currently displayed pose overlay."""
+        self.set_landmarks(None)
+
+    def _update_fps(self) -> None:
+        current_time_ms = self._frame_timer.elapsed()
+
+        if self._last_frame_time_ms is not None:
+            elapsed_ms = current_time_ms - self._last_frame_time_ms
+            if elapsed_ms > 0:
+                self._fps = 1000.0 / elapsed_ms
+
+        self._last_frame_time_ms = current_time_ms
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Draw the camera frame and landmarks without creating scaled images."""
+        _ = event
         painter = QPainter(self)
 
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        try:
+            painter.fillRect(self.rect(), QColor("black"))
 
-        painter.fillRect(
-            self.rect(),
-            QColor("black"),
-        )
+            if self._frame is None:
+                return
 
-        if self.frame is None:
-            return
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
-        image = self.frame.scaled(
-            self.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
+            image_size = self._frame.size()
+            image_size.scale(self.size(), Qt.AspectRatioMode.KeepAspectRatio)
+            image_rect = QRect(
+                (self.width() - image_size.width()) // 2,
+                (self.height() - image_size.height()) // 2,
+                image_size.width(),
+                image_size.height(),
+            )
+            painter.drawImage(image_rect, self._frame)
 
-        x = (self.width() - image.width()) // 2
-        y = (self.height() - image.height()) // 2
-
-        painter.drawImage(x, y, image)
-
-        image_width = image.width()
-        image_height = image.height()
-
-        image_x = (self.width() - image_width) // 2
-        image_y = (self.height() - image_height) // 2
-
-        if self.landmarks is not None:
-            self.pose_renderer.draw(
+            self._pose_renderer.draw(
                 painter,
-                self.landmarks,
-                image_x,
-                image_y,
-                image_width,
-                image_height,
+                self._landmarks,
+                image_rect.x(),
+                image_rect.y(),
+                image_rect.width(),
+                image_rect.height(),
             )
 
-        painter.setPen(QColor("yellow"))
-
-        painter.drawText(10, 30, f"FPS : {self.fps:.1f}")
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-
-        self.stop()
-
-        super().closeEvent(event)
+            painter.setPen(QColor("yellow"))
+            painter.drawText(10, 30, f"FPS: {self._fps:.1f}")
+        finally:
+            painter.end()

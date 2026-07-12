@@ -2,4 +2,4 @@ from __future__ import annotations
 
 
 class StorageService:
-    pass
+    """Placeholder for local measurement-session persistence."""

@@ -2,4 +2,4 @@ from __future__ import annotations
 
 
 class ImageUtils:
-    pass
+    """Placeholder for reusable image-processing helpers."""

@@ -1,3 +1,5 @@
 from __future__ import annotations
 
-APP_NAME = "BodyMeasureAI"
+from typing import Final
+
+APP_NAME: Final = "BodyMeasureAI"

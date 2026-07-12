@@ -2,4 +2,4 @@ from __future__ import annotations
 
 
 class Calibration:
-    pass
+    """Placeholder for body-measurement calibration data and logic."""

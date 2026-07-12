@@ -27,3 +27,5 @@ dist/
 
 # Application data
 exports/
+logs/
+bodylens.json
