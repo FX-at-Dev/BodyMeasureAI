@@ -14,6 +14,8 @@ from src.models import (
     MeasurementResult,
     MeasurementStatus,
     PoseFrame,
+    ValidationResult,
+    ValidationStatus,
 )
 
 
@@ -39,6 +41,11 @@ def test_models_round_trip_through_json() -> None:
     )
     profile = BodyProfile("profile-1", height_cm=175.0, weight_kg=70.0)
     export_profile = ExportProfile(ExportFormat.JSON, include_pose_data=True)
+    validation_result = ValidationResult(
+        ValidationStatus.READY,
+        "Ready",
+        ("body_aligned",),
+    )
 
     encoded = json.dumps(
         {
@@ -46,6 +53,7 @@ def test_models_round_trip_through_json() -> None:
             "pose_frame": pose_frame.to_dict(),
             "profile": profile.to_dict(),
             "export": export_profile.to_dict(),
+            "validation": validation_result.to_dict(),
         }
     )
     decoded = json.loads(encoded)
@@ -54,3 +62,4 @@ def test_models_round_trip_through_json() -> None:
     assert PoseFrame.from_dict(decoded["pose_frame"]) == pose_frame
     assert BodyProfile.from_dict(decoded["profile"]) == profile
     assert ExportProfile.from_dict(decoded["export"]) == export_profile
+    assert ValidationResult.from_dict(decoded["validation"]) == validation_result

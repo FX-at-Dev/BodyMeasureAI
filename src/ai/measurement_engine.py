@@ -1,37 +1,26 @@
-"""Interfaces and data contracts for future body-measurement estimation."""
+"""Height-only measurement orchestration using calibration and pose landmarks."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Protocol
 
+from src.ai.hand_estimator import HandEstimator
+from src.ai.height_estimator import HeightEstimator
+from src.models.calibration_data import CalibrationData
+from src.models.measurement import (
+    Measurement,
+    MeasurementKind,
+    MeasurementSide,
+    MeasurementStatus,
+    MeasurementUnit,
+)
 
-class MeasurementKind(StrEnum):
-    """Body dimensions supported by the BodyLens measurement workflow."""
-
-    HEIGHT = "height"
-    CHEST = "chest"
-    WAIST = "waist"
-    HIP = "hip"
-    THIGH = "thigh"
-    HAND_LENGTH = "hand_length"
-    HAND_WIDTH = "hand_width"
-    INSEAM = "inseam"
-    HEAD_CIRCUMFERENCE = "head_circumference"
-
-
-class EstimateStatus(StrEnum):
-    """Lifecycle states for an individual measurement estimate."""
-
-    NOT_CALCULATED = "not_calculated"
-    CALIBRATION_REQUIRED = "calibration_required"
-    INSUFFICIENT_LANDMARKS = "insufficient_landmarks"
-    AVAILABLE = "available"
+EstimateStatus = MeasurementStatus
 
 
 class PoseLandmark(Protocol):
-    """Minimal landmark contract consumed by future measurement algorithms."""
+    """Minimal landmark contract consumed by height estimation."""
 
     x: float
     y: float
@@ -50,7 +39,7 @@ class CalibrationInput:
 
 @dataclass(frozen=True)
 class CalibrationProfile:
-    """Reusable calibration result for converting image distances to centimeters."""
+    """Compatibility calibration contract for existing measurement callers."""
 
     reference_name: str
     centimeters_per_pixel: float
@@ -59,31 +48,36 @@ class CalibrationProfile:
 
 @dataclass(frozen=True)
 class MeasurementRequest:
-    """Input data required by a future measurement-estimation algorithm."""
+    """Inputs needed to estimate the currently supported body measurements."""
 
     landmarks: tuple[PoseLandmark, ...]
+    image_height_pixels: int = 0
+    image_width_pixels: int = 0
     requested_measurements: frozenset[MeasurementKind] = field(
         default_factory=lambda: frozenset(MeasurementKind)
     )
-    calibration: CalibrationProfile | None = None
+    calibration: CalibrationData | CalibrationProfile | None = None
 
 
 @dataclass(frozen=True)
 class MeasurementEstimate:
-    """A single normalized body-measurement result in centimeters."""
+    """Compatibility view of an individual measurement result."""
 
     kind: MeasurementKind
     value_cm: float | None
     confidence: float
-    status: EstimateStatus
+    status: MeasurementStatus
+    unit: MeasurementUnit = MeasurementUnit.CENTIMETERS
+    side: MeasurementSide | None = None
+    validation_warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class MeasurementResult:
-    """Collection of estimates generated for one measurement request."""
+    """Measurements generated for one request."""
 
     estimates: tuple[MeasurementEstimate, ...]
-    calibration: CalibrationProfile | None = None
+    calibration: CalibrationData | CalibrationProfile | None = None
 
     def get(self, kind: MeasurementKind) -> MeasurementEstimate | None:
         """Return the estimate for a requested measurement kind, if available."""
@@ -93,16 +87,115 @@ class MeasurementResult:
 
 
 class MeasurementEngine:
-    """Stable interface for future calibrated body-measurement algorithms.
+    """Orchestrate calibrated height and left/right hand measurements."""
 
-    Implementations must remain in the ``ai`` layer and run from a worker when
-    processing live camera frames.  No estimation algorithm is provided yet.
-    """
+    def __init__(
+        self,
+        height_estimator: HeightEstimator | None = None,
+        hand_estimator: HandEstimator | None = None,
+    ) -> None:
+        self._height_estimator = height_estimator or HeightEstimator()
+        self._hand_estimator = hand_estimator or HandEstimator()
 
     def calibrate(self, calibration_input: CalibrationInput) -> CalibrationProfile:
-        """Create a calibration profile from a known physical reference."""
-        raise NotImplementedError("Calibration algorithms have not been implemented.")
+        """Create a compatibility profile from a known physical reference."""
+        if (
+            calibration_input.known_length_cm <= 0
+            or calibration_input.measured_length_pixels <= 0
+        ):
+            raise ValueError("Calibration lengths must be greater than zero.")
+        return CalibrationProfile(
+            reference_name=calibration_input.reference_name,
+            centimeters_per_pixel=(
+                calibration_input.known_length_cm
+                / calibration_input.measured_length_pixels
+            ),
+            confidence=1.0,
+        )
+
+    def estimate_height(
+        self,
+        landmarks: tuple[PoseLandmark, ...],
+        image_height_pixels: int,
+        calibration: CalibrationData | None,
+    ) -> Measurement:
+        """Estimate calibrated standing height from one pose frame."""
+        return self._height_estimator.estimate(
+            landmarks,
+            image_height_pixels,
+            calibration,
+        )
+
+    def estimate_hands(
+        self,
+        landmarks: tuple[PoseLandmark, ...],
+        image_width_pixels: int,
+        image_height_pixels: int,
+        calibration: CalibrationData | None,
+    ) -> tuple[Measurement, ...]:
+        """Estimate left and right hand length and palm width."""
+        return self._hand_estimator.estimate(
+            landmarks,
+            image_width_pixels,
+            image_height_pixels,
+            calibration,
+        )
 
     def estimate(self, request: MeasurementRequest) -> MeasurementResult:
-        """Estimate requested body measurements from pose landmarks."""
-        raise NotImplementedError("Measurement algorithms have not been implemented.")
+        """Estimate each currently supported measurement requested by the caller."""
+        calibration = self._calibration_data(request.calibration)
+        measurements: list[Measurement] = []
+        if MeasurementKind.HEIGHT in request.requested_measurements:
+            measurements.append(
+                self.estimate_height(
+                    request.landmarks,
+                    request.image_height_pixels,
+                    calibration,
+                )
+            )
+        if {
+            MeasurementKind.HAND_LENGTH,
+            MeasurementKind.HAND_WIDTH,
+        } & request.requested_measurements:
+            hand_measurements = self.estimate_hands(
+                request.landmarks,
+                request.image_width_pixels,
+                request.image_height_pixels,
+                calibration,
+            )
+            measurements.extend(
+                measurement
+                for measurement in hand_measurements
+                if measurement.kind in request.requested_measurements
+            )
+        return MeasurementResult(
+            estimates=tuple(
+                MeasurementEstimate(
+                    kind=height.kind,
+                    value_cm=height.value_cm,
+                    confidence=height.confidence,
+                    status=height.status,
+                    unit=height.unit,
+                    side=height.side,
+                    validation_warnings=height.validation_warnings,
+                )
+                for height in measurements
+            ),
+            calibration=request.calibration,
+        )
+
+    @staticmethod
+    def _calibration_data(
+        calibration: CalibrationData | CalibrationProfile | None,
+    ) -> CalibrationData | None:
+        if calibration is None:
+            return None
+        if isinstance(calibration, CalibrationData):
+            return calibration
+        return CalibrationData(
+            reference_name=calibration.reference_name,
+            known_length_cm=1.0,
+            measured_length_pixels=1.0 / calibration.centimeters_per_pixel,
+            centimeters_per_pixel=calibration.centimeters_per_pixel,
+            confidence=calibration.confidence,
+        )

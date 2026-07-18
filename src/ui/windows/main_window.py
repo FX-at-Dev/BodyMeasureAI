@@ -4,8 +4,10 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
+from src.models.measurement import Measurement
 from src.ui.pages.camera_page import CameraPage
 from src.ui.pages.home_page import HomePage
+from src.ui.pages.results_page import ResultsPage
 
 
 class MainWindow(QMainWindow):
@@ -21,10 +23,12 @@ class MainWindow(QMainWindow):
 
         self.home = HomePage(self)
         self.camera = CameraPage(self)
+        self.results = ResultsPage(self)
         self.camera.shutdown_finished.connect(self._close_after_camera_shutdown)
 
         self.stack.addWidget(self.home)
         self.stack.addWidget(self.camera)
+        self.stack.addWidget(self.results)
 
         self.setCentralWidget(self.stack)
 
@@ -35,6 +39,16 @@ class MainWindow(QMainWindow):
     def go_home(self) -> None:
         """Display the home page."""
         self.stack.setCurrentWidget(self.home)
+
+    def show_height_review(self, measurement: Measurement) -> None:
+        """Present the measured height and related validation guidance."""
+        self.results.display_height(measurement)
+        self.stack.setCurrentWidget(self.results)
+
+    def show_measurement_review(self, measurements: tuple[Measurement, ...]) -> None:
+        """Present supplied height and hand measurements for review."""
+        self.results.display_measurements(measurements)
+        self.stack.setCurrentWidget(self.results)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Release the camera worker before destroying the window."""

@@ -1,0 +1,8 @@
+{
+  "centimeters_per_pixel": 16900.0,
+  "confidence": 0.0,
+  "known_length_cm": 169.0,
+  "measured_length_pixels": 0.01,
+  "method": "known_height",
+  "reference_name": "Known height"
+}

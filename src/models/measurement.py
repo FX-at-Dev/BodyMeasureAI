@@ -33,6 +33,19 @@ class MeasurementStatus(StrEnum):
     AVAILABLE = "available"
 
 
+class MeasurementUnit(StrEnum):
+    """Units used for measurement values."""
+
+    CENTIMETERS = "cm"
+
+
+class MeasurementSide(StrEnum):
+    """Body side associated with a side-specific measurement."""
+
+    LEFT = "left"
+    RIGHT = "right"
+
+
 @dataclass(frozen=True)
 class Measurement:
     """One estimated body dimension in centimeters."""
@@ -41,6 +54,9 @@ class Measurement:
     value_cm: float | None
     confidence: float
     status: MeasurementStatus
+    unit: MeasurementUnit = MeasurementUnit.CENTIMETERS
+    side: MeasurementSide | None = None
+    validation_warnings: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-compatible representation."""
@@ -49,6 +65,9 @@ class Measurement:
             "value_cm": self.value_cm,
             "confidence": self.confidence,
             "status": self.status.value,
+            "unit": self.unit.value,
+            "side": self.side.value if self.side else None,
+            "validation_warnings": list(self.validation_warnings),
         }
 
     @classmethod
@@ -59,6 +78,11 @@ class Measurement:
             value_cm=_optional_float(data.get("value_cm")),
             confidence=float(data["confidence"]),
             status=MeasurementStatus(data["status"]),
+            unit=MeasurementUnit(data.get("unit", MeasurementUnit.CENTIMETERS)),
+            side=_optional_side(data.get("side")),
+            validation_warnings=tuple(
+                str(warning) for warning in data.get("validation_warnings", [])
+            ),
         )
 
 
@@ -108,3 +132,7 @@ class MeasurementResult:
 
 def _optional_float(value: Any) -> float | None:
     return float(value) if value is not None else None
+
+
+def _optional_side(value: Any) -> MeasurementSide | None:
+    return MeasurementSide(value) if value is not None else None
